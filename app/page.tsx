@@ -448,12 +448,8 @@ export default function Home() {
                             return (
                               <div
                                 key={key}
-                                className="group"
-                                style={{
-                                  animationDelay: `${idx * 50}ms`,
-                                  animation: "fadeUp 0.4s ease-out forwards",
-                                  opacity: 0,
-                                }}
+                                className="group animate-fade-up"
+                                style={{ animationDelay: `${idx * 50}ms` }}
                               >
                                 <div
                                   className={`flex items-start gap-3 p-4 rounded-2xl border transition-all duration-200 cursor-pointer ${
@@ -529,12 +525,8 @@ export default function Home() {
                       return (
                         <div
                           key={key}
-                          className="group"
-                          style={{
-                            animationDelay: `${idx * 50}ms`,
-                            animation: "fadeUp 0.4s ease-out forwards",
-                            opacity: 0,
-                          }}
+                        className="group animate-fade-up"
+                        style={{ animationDelay: `${idx * 50}ms` }}
                         >
                           <div
                             className={`flex items-start gap-3 p-4 rounded-2xl border transition-all duration-200 cursor-pointer ${
@@ -617,25 +609,6 @@ export default function Home() {
         </div>
       </div>
 
-      <style jsx global>{`
-        @keyframes fadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
     </main>
   );
 }
