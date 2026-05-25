@@ -26,17 +26,28 @@ function unreadCount(src: Source, digest: Digest, read: Set<string>, showRead: b
   return items.filter((i) => !read.has(itemKey(i))).length;
 }
 
-function Favicon({ domain, size = 16 }: { domain: string; size?: number }) {
+function LogoThumbnail({ domain, label, size = 48 }: { domain: string; label: string; size?: number }) {
   const d = domain.replace(/^www\./, "").split("/")[0];
+  const [err, setErr] = useState(false);
+  if (err) {
+    return (
+      <div
+        className="shrink-0 rounded-lg flex items-center justify-center font-bold text-sm"
+        style={{ width: size, height: size, backgroundColor: "#1e293b", color: "#94a3b8" }}
+      >
+        {label[0]}
+      </div>
+    );
+  }
   return (
     <img
-      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=${size}`}
+      src={`https://logo.clearbit.com/${encodeURIComponent(d)}`}
       alt=""
-      className="rounded-sm"
+      className="shrink-0 rounded-lg bg-slate-800 object-contain"
       width={size}
       height={size}
       loading="lazy"
-      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+      onError={() => setErr(true)}
     />
   );
 }
@@ -363,12 +374,12 @@ function StoryCard({
             </svg>
           )}
         </button>
+        <LogoThumbnail domain={item.source} label={item.source} size={48} />
         <div className="flex-1 min-w-0">
           <div className={`font-medium text-[15px] leading-snug mb-1 ${isRead ? "line-through text-slate-600" : "text-slate-200"}`}>
             {item.title}
           </div>
           <div className="flex items-center gap-2">
-            <Favicon domain={item.source} size={14} />
             <span
               className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
               style={{ backgroundColor: `${source.color}14`, color: source.color }}
