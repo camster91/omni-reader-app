@@ -28,7 +28,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/digest.json")
+    fetch("./digest.json")
       .then((r) => r.json())
       .then((data) => {
         setDigest(data);
