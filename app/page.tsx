@@ -273,7 +273,7 @@ export default function Home() {
         )}
 
         {filtered.length > 0 && !allDone && (
-          <div className="flex items-center justify-between mb-4 px-0.5">
+          <div className="flex items-center justify-between mb-4">
             <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               {filter === "all" ? "Everything" : active.find((s) => s.id === filter)?.label}
             </span>
@@ -286,7 +286,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="space-y-8">
+        <div className="space-y-8 mt-2">
           {filtered.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-4xl mb-3">{allDone ? "☕" : "📭"}</div>
@@ -363,8 +363,8 @@ function StoryCard({
       >
         <button
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className={`mt-0.5 w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center transition-colors duration-150 ${
-            isRead ? "bg-indigo-500 border-indigo-500" : "border-slate-600 hover:border-indigo-400 bg-slate-950"
+          className={`mt-0.5 w-5 h-5 rounded border shrink-0 flex items-center justify-center transition-colors duration-150 ${
+            isRead ? "bg-indigo-500 border-indigo-500" : "border-slate-400 hover:border-indigo-400 bg-transparent"
           }`}
           aria-label={isRead ? "Mark unread" : "Mark read"}
         >
