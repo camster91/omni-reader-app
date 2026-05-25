@@ -182,7 +182,6 @@ export default function Home() {
             </button>
           ))}
         </div>
-        {</* Mark all */}>
         {filtered.length > 0 && !allDone && (
           <div className="flex items-center justify-between mb-4 px-0.5">
             <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
@@ -196,7 +195,6 @@ export default function Home() {
             </button>
           </div>
         )}
-        {</* Content */}>
         <div className="space-y-6">
           {filtered.length === 0 ? (
             <div className="text-center py-20">
@@ -241,8 +239,7 @@ export default function Home() {
               ))}
             </div>
           )}
-          {</* End */}>
-          {filtered.length > 0 && !allDone && (
+        {filtered.length > 0 && !allDone && (
             <div className="text-center py-8">
               <div className="inline-flex items-center gap-3 text-slate-700 text-[10px] font-semibold uppercase tracking-[0.2em]">
                 <span className="h-px w-6 bg-slate-800" />
