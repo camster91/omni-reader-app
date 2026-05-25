@@ -41,9 +41,9 @@ function LogoThumbnail({ domain, label, size = 48 }: { domain: string; label: st
   }
   return (
     <img
-      src={`https://logo.clearbit.com/${encodeURIComponent(d)}`}
+      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`}
       alt=""
-      className="shrink-0 rounded-lg bg-slate-800 object-contain"
+      className="shrink-0 rounded-lg bg-slate-800"
       width={size}
       height={size}
       loading="lazy"
