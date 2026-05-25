@@ -49,7 +49,7 @@ export default function Home() {
   const [filter, setFilter] = useState<string | "all">("all");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showRead, setShowRead] = useState(false);
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     try {
