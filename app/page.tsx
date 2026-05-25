@@ -525,8 +525,8 @@ export default function Home() {
                       return (
                         <div
                           key={key}
-                        className="group animate-fade-up"
-                        style={{ animationDelay: `${idx * 50}ms` }}
+                          className="group animate-fade-up"
+                          style={{ animationDelay: `${idx * 50}ms` }}
                         >
                           <div
                             className={`flex items-start gap-3 p-4 rounded-2xl border transition-all duration-200 cursor-pointer ${
