@@ -9,8 +9,12 @@ interface Item {
   title: string; link: string; source: string; image?: string;
   summary?: string; clickbait?: number; importance?: number;
   quality?: number; interests?: string[]; sentiment?: string;
+  fresh?: boolean; topics?: string[];
 }
-type Digest = Record<string, Item[]>;
+interface DigestMeta {
+  trending_keywords?: string[];
+}
+type Digest = Record<string, Item[]> & { _meta?: DigestMeta };
 
 const SOURCES: Source[] = [
   { id: "news", label: "World", category: "News", active: true, maxItems: 8, color: "#22c55e" },
@@ -498,6 +502,30 @@ export default function Home() {
                 className="w-full accent-indigo-500"
               />
             </div>
+          </div>
+        )}
+
+        {digest._meta?.trending_keywords && digest._meta.trending_keywords.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-1 scrollbar-hide">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0 py-1.5">Trending</span>
+            {digest._meta.trending_keywords.map((kw) => (
+              <button
+                key={kw}
+                onClick={() => {
+                  // Filter to items containing this keyword
+                  const matches = qualityFiltered.filter((i) =>
+                    (i.item.title + " " + (i.item.summary || "")).toLowerCase().includes(kw.toLowerCase())
+                  );
+                  if (matches.length > 0) {
+                    setFilter("all");
+                    setShowSavedOnly(false);
+                  }
+                }}
+                className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700 transition"
+              >
+                {kw}
+              </button>
+            ))}
           </div>
         )}
 
