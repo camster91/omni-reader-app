@@ -217,6 +217,8 @@ export default function Home() {
   const [toast, setToast] = useState<string | null>(null);
   const [minQuality, setMinQuality] = useState(0);
   const [showClickbait, setShowClickbait] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
@@ -308,8 +310,20 @@ export default function Home() {
     if (showSavedOnly) {
       items = items.filter((i) => saved.has(i.key));
     }
+    if (activeKeyword) {
+      const kw = activeKeyword.toLowerCase();
+      items = items.filter((i) =>
+        (i.item.title + " " + (i.item.summary || "")).toLowerCase().includes(kw)
+      );
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter((i) =>
+        (i.item.title + " " + (i.item.summary || "") + " " + i.item.source).toLowerCase().includes(q)
+      );
+    }
     return items;
-  }, [filtered, minQuality, showClickbait, showSavedOnly, saved]);
+  }, [filtered, minQuality, showClickbait, showSavedOnly, saved, activeKeyword, searchQuery]);
 
   const unread = visible.filter((i) => !read.has(i.key)).length;
   const total = visible.length;
@@ -512,26 +526,44 @@ export default function Home() {
               <button
                 key={kw}
                 onClick={() => {
-                  // Filter to items containing this keyword
-                  const matches = qualityFiltered.filter((i) =>
-                    (i.item.title + " " + (i.item.summary || "")).toLowerCase().includes(kw.toLowerCase())
-                  );
-                  if (matches.length > 0) {
+                  if (activeKeyword === kw) {
+                    setActiveKeyword(null);
+                  } else {
+                    setActiveKeyword(kw);
                     setFilter("all");
                     setShowSavedOnly(false);
                   }
                 }}
-                className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700 transition"
+                className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border transition ${
+                  activeKeyword === kw
+                    ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"
+                    : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border-slate-700"
+                }`}
               >
                 {kw}
               </button>
             ))}
+            {activeKeyword && (
+              <button
+                onClick={() => setActiveKeyword(null)}
+                className="shrink-0 px-2 py-1 rounded-full text-xs text-slate-500 hover:text-slate-300 transition"
+              >
+                Clear
+              </button>
+            )}
           </div>
         )}
 
         <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
+          <input
+            type="text"
+            placeholder="Search articles..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="shrink-0 w-40 bg-slate-900 border border-slate-700 rounded-full px-3 py-1.5 text-sm text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50"
+          />
           <button
-            onClick={() => { setFilter("all"); setShowSavedOnly(false); }}
+            onClick={() => { setFilter("all"); setShowSavedOnly(false); setActiveKeyword(null); }}
             className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
               filter === "all" && !showSavedOnly ? "bg-white text-black" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"
             }`}
