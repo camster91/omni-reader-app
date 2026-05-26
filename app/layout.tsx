@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Omni Reader",
-  description: "Unified news + social + dev + freelance digest",
+  description: "Your daily digest, done.",
 };
 
 export default function RootLayout({
@@ -13,7 +13,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 min-h-screen">{children}</body>
+      <head>
+        <link rel="manifest" href="./manifest.json" />
+        <meta name="theme-color" content="#020618" />
+      </head>
+      <body className="bg-[#030712] text-slate-200 antialiased">{children}</body>
     </html>
   );
 }

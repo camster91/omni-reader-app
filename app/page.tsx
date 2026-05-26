@@ -18,6 +18,7 @@ const SOURCES: Source[] = [
 ];
 
 const STORAGE = "omni-reader-v3";
+const SCROLL_KEY = "omni-reader-scroll";
 function hash(str: string) { let h = 0; for (let c of str) h = ((h << 5) - h + c.charCodeAt(0)) | 0; return String(h); }
 function itemKey(item: Item) { return hash(item.title + item.link); }
 function unreadCount(src: Source, digest: Digest, read: Set<string>, showRead: boolean) {
@@ -52,6 +53,80 @@ function LogoThumbnail({ domain, label, size = 48 }: { domain: string; label: st
   );
 }
 
+function useScrollRestore() {
+  useEffect(() => {
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved) {
+      const y = parseInt(saved, 10);
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+      }
+    };
+    const onBeforeUnload = () => {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, []);
+}
+
+function usePullToRefresh(onRefresh: () => void) {
+  const [pulling, setPulling] = useState(false);
+  const startY = useRef(0);
+  const currentY = useRef(0);
+  useEffect(() => {
+    const onTouchStart = (e: TouchEvent) => {
+      if (window.scrollY > 0) return;
+      startY.current = e.touches[0].clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (window.scrollY > 0) { setPulling(false); return; }
+      currentY.current = e.touches[0].clientY;
+      const diff = currentY.current - startY.current;
+      if (diff > 0 && diff < 200) setPulling(true);
+      if (diff >= 200) {
+        setPulling(false);
+        onRefresh();
+      }
+    };
+    const onTouchEnd = () => { setPulling(false); };
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [onRefresh]);
+  return pulling;
+}
+
+function ShareIcon({ onClick }: { onClick: (e: React.MouseEvent) => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="shrink-0 mt-1 p-1 rounded hover:bg-slate-800/60 transition"
+      aria-label="Share"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500 hover:text-slate-300">
+        <circle cx="18" cy="5" r="3" />
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+      </svg>
+    </button>
+  );
+}
+
 export default function Home() {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +135,7 @@ export default function Home() {
   const [filter, setFilter] = useState<string | "all">("all");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showRead, setShowRead] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
@@ -79,6 +155,21 @@ export default function Home() {
       .then((data: Digest) => { setDigest(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  // Register service worker
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+  }, []);
+
+  // Scroll restore
+  useScrollRestore();
+
+  // Pull to refresh
+  const pulling = usePullToRefresh(() => {
+    window.location.reload();
+  });
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -105,6 +196,7 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Title unread badge
   const active = useMemo(() => sources.filter((s) => s.active), [sources]);
   const visible = useMemo(() => {
     if (!digest) return [];
@@ -126,14 +218,21 @@ export default function Home() {
     return showRead ? items : items.filter((i) => !read.has(i.key));
   }, [filter, visible, active, digest, showRead, read]);
 
-  // Keep a ref for keyboard shortcuts
-  const filteredRef = useRef(filtered);
-  filteredRef.current = filtered;
-
   const unread = visible.filter((i) => !read.has(i.key)).length;
   const total = visible.length;
   const allDone = unread === 0 && total > 0;
   const noneActive = active.length === 0;
+
+  useEffect(() => {
+    if (unread > 0) {
+      document.title = `(${unread}) Omni Reader`;
+    } else {
+      document.title = "Omni Reader";
+    }
+  }, [unread]);
+
+  const filteredRef = useRef(filtered);
+  filteredRef.current = filtered;
 
   const toggleRead = useCallback((id: string) => {
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
@@ -163,6 +262,29 @@ export default function Home() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  const handleShare = async (link: string, title: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, url: link });
+      } catch {
+        // user cancelled
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(link);
+        showToast("Link copied");
+      } catch {
+        showToast("Couldnt copy link");
+      }
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -184,6 +306,27 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-950 pb-12">
+      {/* Pull to refresh indicator */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-[60] flex items-center justify-center transition-transform duration-300 ${
+          pulling ? "translate-y-0" : "-translate-y-full"
+        }`}
+      >
+        <div className="bg-slate-900 border border-slate-800 rounded-full px-4 py-2 mt-2 shadow-xl">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <div className="w-4 h-4 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+            Release to refresh
+          </div>
+        </div>
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 border border-slate-700 text-slate-300 text-sm px-4 py-2 rounded-lg shadow-xl animate-fade-up">
+          {toast}
+        </div>
+      )}
+
       <header className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
@@ -317,7 +460,15 @@ export default function Home() {
                   </div>
                   <div className="space-y-3">
                     {items.map(({ item, key }, i) => (
-                      <StoryCard key={key} item={item} source={src} isRead={read.has(key)} delay={i * 40} onToggle={() => toggleRead(key)} />
+                      <StoryCard
+                        key={key}
+                        item={item}
+                        source={src}
+                        isRead={read.has(key)}
+                        delay={i * 40}
+                        onToggle={() => toggleRead(key)}
+                        onShare={(e) => handleShare(item.link, item.title, e)}
+                      />
                     ))}
                   </div>
                 </section>
@@ -326,7 +477,15 @@ export default function Home() {
           ) : (
             <div className="space-y-3">
               {filtered.map(({ item, key, source }, i) => (
-                <StoryCard key={key} item={item} source={source} isRead={read.has(key)} delay={i * 40} onToggle={() => toggleRead(key)} />
+                <StoryCard
+                  key={key}
+                  item={item}
+                  source={source}
+                  isRead={read.has(key)}
+                  delay={i * 40}
+                  onToggle={() => toggleRead(key)}
+                  onShare={(e) => handleShare(item.link, item.title, e)}
+                />
               ))}
             </div>
           )}
@@ -347,9 +506,9 @@ export default function Home() {
 }
 
 function StoryCard({
-  item, source, isRead, delay, onToggle,
+  item, source, isRead, delay, onToggle, onShare,
 }: {
-  item: Item; source: Source; isRead: boolean; delay: number; onToggle: () => void;
+  item: Item; source: Source; isRead: boolean; delay: number; onToggle: () => void; onShare: (e: React.MouseEvent) => void;
 }) {
   return (
     <div className="animate-fade-up group" style={{ animationDelay: `${delay}ms` }}>
@@ -376,7 +535,7 @@ function StoryCard({
         </button>
         <LogoThumbnail domain={item.source} label={item.source} size={48} />
         <div className="flex-1 min-w-0">
-          <div className={`font-medium text-[15px] leading-snug mb-1 ${isRead ? "line-through text-slate-600" : "text-slate-200"}`}>
+          <div className={`font-medium text-[15px] leading-snug mb-1 line-clamp-2 ${isRead ? "line-through text-slate-600" : "text-slate-200"}`}>
             {item.title}
           </div>
           <div className="flex items-center gap-2">
@@ -388,6 +547,7 @@ function StoryCard({
             </span>
           </div>
         </div>
+        <ShareIcon onClick={onShare} />
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
           className="text-slate-600 shrink-0 mt-1 opacity-0 group-hover:opacity-60 transition-opacity"
         >
