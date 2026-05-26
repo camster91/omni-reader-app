@@ -5,7 +5,7 @@ interface Source {
   id: string; label: string; category: string;
   active: boolean; maxItems: number; color: string;
 }
-interface Item { title: string; link: string; source: string; }
+interface Item { title: string; link: string; source: string; image?: string; }
 type Digest = Record<string, Item[]>;
 
 const SOURCES: Source[] = [
@@ -27,24 +27,28 @@ function unreadCount(src: Source, digest: Digest, read: Set<string>, showRead: b
   return items.filter((i) => !read.has(itemKey(i))).length;
 }
 
-function LogoThumbnail({ domain, label, size = 48 }: { domain: string; label: string; size?: number }) {
-  const d = domain.replace(/^www\./, "").split("/")[0];
+function ArticleThumbnail({ url, title, size = 80 }: { url: string; title: string; size?: number }) {
   const [err, setErr] = useState(false);
+  const ogUrl = `https://v1.opengraph.11ty.dev/${encodeURIComponent(url)}/small/`;
   if (err) {
+    // Fallback to favicon
+    const domain = url.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "");
     return (
-      <div
-        className="shrink-0 rounded-lg flex items-center justify-center font-bold text-sm"
-        style={{ width: size, height: size, backgroundColor: "#1e293b", color: "#94a3b8" }}
-      >
-        {label[0]}
-      </div>
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`}
+        alt=""
+        className="shrink-0 rounded-lg bg-slate-800"
+        width={size}
+        height={size}
+        loading="lazy"
+      />
     );
   }
   return (
     <img
-      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`}
-      alt=""
-      className="shrink-0 rounded-lg bg-slate-800"
+      src={ogUrl}
+      alt={title}
+      className="shrink-0 rounded-lg bg-slate-800 object-cover"
       width={size}
       height={size}
       loading="lazy"
@@ -533,9 +537,9 @@ function StoryCard({
             </svg>
           )}
         </button>
-        <LogoThumbnail domain={item.source} label={item.source} size={48} />
+        <ArticleThumbnail url={item.link} title={item.title} size={80} />
         <div className="flex-1 min-w-0">
-          <div className={`font-medium text-[15px] leading-snug mb-1 line-clamp-2 ${isRead ? "line-through text-slate-600" : "text-slate-200"}`}>
+          <div className={`font-medium text-[15px] leading-snug mb-1 ${isRead ? "line-through text-slate-600" : "text-slate-200"}`}>
             {item.title}
           </div>
           <div className="flex items-center gap-2">
