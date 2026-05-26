@@ -239,6 +239,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [readingItem, setReadingItem] = useState<Item | null>(null);
+  const [readerOpen, setReaderOpen] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
@@ -679,6 +681,7 @@ export default function Home() {
                         onToggle={() => toggleRead(key)}
                         onSave={(e) => { e.stopPropagation(); toggleSaved(key); }}
                         onShare={(e) => handleShare(item.link, item.title, e)}
+                        onOpenReader={() => { setReadingItem(item); setReaderOpen(true); }}
                       />
                     ))}
                   </div>
@@ -698,6 +701,7 @@ export default function Home() {
                   onToggle={() => toggleRead(key)}
                   onSave={(e) => { e.stopPropagation(); toggleSaved(key); }}
                   onShare={(e) => handleShare(item.link, item.title, e)}
+                  onOpenReader={() => { setReadingItem(item); setReaderOpen(true); }}
                 />
               ))}
             </div>
@@ -714,15 +718,85 @@ export default function Home() {
           )}
         </div>
       </div>
+      {readerOpen && readingItem && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-sm"
+          onClick={() => setReaderOpen(false)}
+        >
+          <div
+            className="absolute inset-x-0 bottom-0 max-w-2xl mx-auto bg-slate-900 border-t border-slate-800 rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between z-10">
+              <button
+                onClick={() => setReaderOpen(false)}
+                className="text-sm text-slate-400 hover:text-white transition"
+              >
+                Close
+              </button>
+              <div className="flex gap-2">
+                <a
+                  href={readingItem.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition"
+                >
+                  Open original
+                </a>
+              </div>
+            </div>
+
+            <div className="p-4">
+              {readingItem.image && (
+                <img
+                  src={readingItem.image}
+                  alt={readingItem.title}
+                  className="w-full h-48 object-cover rounded-xl mb-4 bg-slate-800"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+              <h2 className="text-lg font-bold text-white mb-2">{readingItem.title}</h2>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400">{readingItem.source}</span>
+                {readingItem.fresh && (
+                  <span className="text-[10px] font-bold text-emerald-400">🆕 Fresh</span>
+                )}
+                {readingItem.topics?.map((t) => (
+                  <span key={t} className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400">{t}</span>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+                {readingItem.quality != null && (
+                  <span>Quality: {(readingItem.quality * 100).toFixed(0)}%</span>
+                )}
+                {readingItem.sentiment && (
+                  <span className="capitalize">{readingItem.sentiment}</span>
+                )}
+                {(() => {
+                  const interests = readingItem.interests;
+                  return interests && interests.length > 0 ? <span>{interests.join(", ")}</span> : null;
+                })()}
+              </div>
+              <div className="prose prose-invert max-w-none">
+                {readingItem.summary ? (
+                  <p className="text-sm text-slate-300 leading-relaxed">{readingItem.summary}</p>
+                ) : (
+                  <p className="text-sm text-slate-500 italic">No summary available. Click "Open original" to read the full article.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
 function StoryCard({
-  item, source, isRead, isSaved, delay, onToggle, onSave, onShare,
+  item, source, isRead, isSaved, delay, onToggle, onSave, onShare, onOpenReader,
 }: {
   item: Item; source: Source; isRead: boolean; isSaved: boolean; delay: number;
   onToggle: () => void; onSave: (e: React.MouseEvent) => void; onShare: (e: React.MouseEvent) => void;
+  onOpenReader: () => void;
 }) {
   const [imgErr, setImgErr] = useState(false);
   const hasImage = item.image && !imgErr;
@@ -738,7 +812,10 @@ function StoryCard({
             ? "bg-slate-900/40 border-slate-800/60 opacity-40"
             : "bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60"
         }`}
-        onClick={() => window.open(item.link, "_blank", "noopener,noreferrer")}
+        onClick={() => {
+          onOpenReader();
+          if (!isRead) onToggle();
+        }}
       >
         <button
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
