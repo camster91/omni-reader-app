@@ -5,7 +5,11 @@ interface Source {
   id: string; label: string; category: string;
   active: boolean; maxItems: number; color: string;
 }
-interface Item { title: string; link: string; source: string; image?: string; }
+interface Item {
+  title: string; link: string; source: string; image?: string;
+  summary?: string; clickbait?: number; importance?: number;
+  quality?: number; interests?: string[];
+}
 type Digest = Record<string, Item[]>;
 
 const SOURCES: Source[] = [
@@ -31,7 +35,6 @@ function ArticleThumbnail({ url, title, size = 80 }: { url: string; title: strin
   const [err, setErr] = useState(false);
   const ogUrl = `https://v1.opengraph.11ty.dev/${encodeURIComponent(url)}/small/`;
   if (err) {
-    // Fallback to favicon
     const domain = url.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "");
     return (
       <img
@@ -54,6 +57,36 @@ function ArticleThumbnail({ url, title, size = 80 }: { url: string; title: strin
       loading="lazy"
       onError={() => setErr(true)}
     />
+  );
+}
+
+function QualityBadge({ quality, clickbait, importance }: { quality: number; clickbait: number; importance: number }) {
+  if (clickbait > 0.4) {
+    return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">Clickbait</span>;
+  }
+  if (quality > 0.5) {
+    return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">Important</span>;
+  }
+  if (importance > 0.3) {
+    return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400">Worth reading</span>;
+  }
+  return null;
+}
+
+function InterestTags({ tags }: { tags: string[] }) {
+  if (!tags || tags.length === 0) return null;
+  const tagColors: Record<string, string> = {
+    career: "#22c55e", ai: "#8b5cf6", money: "#f59e0b",
+    security: "#ef4444", design: "#ec4899", mobile: "#3b82f6", privacy: "#14b8a6",
+  };
+  return (
+    <div className="flex gap-1 mt-1 flex-wrap">
+      {tags.map((tag) => (
+        <span key={tag} className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: `${tagColors[tag] || "#64748b"}14`, color: tagColors[tag] || "#64748b" }}>
+          {tag}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -140,6 +173,8 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showRead, setShowRead] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [minQuality, setMinQuality] = useState(0);
+  const [showClickbait, setShowClickbait] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
@@ -148,11 +183,12 @@ export default function Home() {
       if (saved.sources) setSources(saved.sources);
       if (saved.read) setRead(new Set(saved.read));
       if (saved.showRead != null) setShowRead(saved.showRead);
+      if (saved.minQuality != null) setMinQuality(saved.minQuality);
     } catch {}
   }, []);
   useEffect(() => {
-    localStorage.setItem(STORAGE, JSON.stringify({ sources, read: [...read], showRead }));
-  }, [sources, read, showRead]);
+    localStorage.setItem(STORAGE, JSON.stringify({ sources, read: [...read], showRead, minQuality }));
+  }, [sources, read, showRead, minQuality]);
   useEffect(() => {
     fetch("./digest.json")
       .then((r) => r.json())
@@ -160,22 +196,18 @@ export default function Home() {
       .catch(() => setLoading(false));
   }, []);
 
-  // Register service worker
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
   }, []);
 
-  // Scroll restore
   useScrollRestore();
 
-  // Pull to refresh
   const pulling = usePullToRefresh(() => {
     window.location.reload();
   });
 
-  // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -200,7 +232,6 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Title unread badge
   const active = useMemo(() => sources.filter((s) => s.active), [sources]);
   const visible = useMemo(() => {
     if (!digest) return [];
@@ -222,6 +253,19 @@ export default function Home() {
     return showRead ? items : items.filter((i) => !read.has(i.key));
   }, [filter, visible, active, digest, showRead, read]);
 
+  const qualityFiltered = useMemo(() => {
+    let items = filtered;
+    // Filter by minimum quality
+    if (minQuality > 0) {
+      items = items.filter((i) => (i.item.quality ?? 0) >= minQuality);
+    }
+    // Hide clickbait unless toggled
+    if (!showClickbait) {
+      items = items.filter((i) => (i.item.clickbait ?? 0) <= 0.4);
+    }
+    return items;
+  }, [filtered, minQuality, showClickbait]);
+
   const unread = visible.filter((i) => !read.has(i.key)).length;
   const total = visible.length;
   const allDone = unread === 0 && total > 0;
@@ -235,8 +279,8 @@ export default function Home() {
     }
   }, [unread]);
 
-  const filteredRef = useRef(filtered);
-  filteredRef.current = filtered;
+  const filteredRef = useRef(qualityFiltered);
+  filteredRef.current = qualityFiltered;
 
   const toggleRead = useCallback((id: string) => {
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
@@ -249,10 +293,10 @@ export default function Home() {
   const markAll = useCallback(() => {
     setRead((prev) => {
       const next = new Set(prev);
-      for (const i of filtered) next.add(i.key);
+      for (const i of qualityFiltered) next.add(i.key);
       return next;
     });
-  }, [filtered]);
+  }, [qualityFiltered]);
   const reset = useCallback(() => { if (confirm("Reset all progress?")) setRead(new Set()); }, []);
   const toggleSource = useCallback((id: string) => {
     setSources((s) => s.map((x) => (x.id === id ? { ...x, active: !x.active } : x)));
@@ -384,6 +428,21 @@ export default function Home() {
               <input type="checkbox" checked={showRead} onChange={(e) => setShowRead(e.target.checked)} className="accent-indigo-500" />
               Show read
             </label>
+            <label className="flex items-center gap-2 mt-2 text-sm text-slate-400 cursor-pointer select-none">
+              <input type="checkbox" checked={showClickbait} onChange={(e) => setShowClickbait(e.target.checked)} className="accent-indigo-500" />
+              Show clickbait
+            </label>
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-slate-500">Min quality</span>
+                <span className="text-xs text-slate-400">{minQuality.toFixed(1)}</span>
+              </div>
+              <input
+                type="range" min={0} max={0.8} step={0.1} value={minQuality}
+                onChange={(e) => setMinQuality(Number(e.target.value))}
+                className="w-full accent-indigo-500"
+              />
+            </div>
           </div>
         )}
 
@@ -419,7 +478,7 @@ export default function Home() {
           </div>
         )}
 
-        {filtered.length > 0 && !allDone && (
+        {qualityFiltered.length > 0 && !allDone && (
           <div className="flex items-center justify-between mb-4">
             <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               {filter === "all" ? "Everything" : active.find((s) => s.id === filter)?.label}
@@ -434,7 +493,7 @@ export default function Home() {
         )}
 
         <div className="space-y-8 mt-2">
-          {filtered.length === 0 ? (
+          {qualityFiltered.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-4xl mb-3">{allDone ? "☕" : "📭"}</div>
               <div className="text-slate-300 font-medium mb-1">{allDone ? "All caught up" : "Nothing here"}</div>
@@ -450,10 +509,9 @@ export default function Home() {
             </div>
           ) : filter === "all" ? (
             active.map((src) => {
-              const items = (digest[src.category] ?? [])
-                .slice(0, src.maxItems)
-                .map((item) => ({ item, key: itemKey(item) }))
-                .filter((i) => showRead || !read.has(i.key));
+              const items = qualityFiltered
+                .filter(({ source }) => source.id === src.id)
+                .map(({ item, key }) => ({ item, key }));
               if (items.length === 0) return null;
               return (
                 <section key={src.id} ref={(el) => { sectionRefs.current[src.id] = el; }}>
@@ -480,7 +538,7 @@ export default function Home() {
             })
           ) : (
             <div className="space-y-3">
-              {filtered.map(({ item, key, source }, i) => (
+              {qualityFiltered.map(({ item, key, source }, i) => (
                 <StoryCard
                   key={key}
                   item={item}
@@ -494,7 +552,7 @@ export default function Home() {
             </div>
           )}
 
-          {filtered.length > 0 && !allDone && (
+          {qualityFiltered.length > 0 && !allDone && (
             <div className="text-center py-8">
               <div className="inline-flex items-center gap-3 text-slate-700 text-[10px] font-semibold uppercase tracking-[0.2em]">
                 <span className="h-px w-6 bg-slate-800" />
@@ -514,6 +572,10 @@ function StoryCard({
 }: {
   item: Item; source: Source; isRead: boolean; delay: number; onToggle: () => void; onShare: (e: React.MouseEvent) => void;
 }) {
+  const [imgErr, setImgErr] = useState(false);
+  const hasImage = item.image && !imgErr;
+  const ogUrl = item.image ? item.image : `https://v1.opengraph.11ty.dev/${encodeURIComponent(item.link)}/small/`;
+
   return (
     <div className="animate-fade-up group" style={{ animationDelay: `${delay}ms` }}>
       <div
@@ -537,20 +599,49 @@ function StoryCard({
             </svg>
           )}
         </button>
-        <ArticleThumbnail url={item.link} title={item.title} size={80} />
+
+        <div className="shrink-0">
+          {hasImage ? (
+            <img
+              src={ogUrl}
+              alt={item.title}
+              className="rounded-lg bg-slate-800 object-cover"
+              width={80}
+              height={80}
+              loading="lazy"
+              onError={() => setImgErr(true)}
+            />
+          ) : (
+            <ArticleThumbnail url={item.link} title={item.title} size={80} />
+          )}
+        </div>
+
         <div className="flex-1 min-w-0">
           <div className={`font-medium text-[15px] leading-snug mb-1 ${isRead ? "line-through text-slate-600" : "text-slate-200"}`}>
             {item.title}
           </div>
-          <div className="flex items-center gap-2">
+
+          {item.summary && (
+            <p className={`text-xs leading-relaxed mb-1.5 ${isRead ? "text-slate-700" : "text-slate-500"}`}>
+              {item.summary}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap">
             <span
               className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
               style={{ backgroundColor: `${source.color}14`, color: source.color }}
             >
               {item.source}
             </span>
+            <QualityBadge quality={item.quality ?? 0} clickbait={item.clickbait ?? 0} importance={item.importance ?? 0} />
           </div>
+
+          {item.interests && item.interests.length > 0 && (
+            <InterestTags tags={item.interests} />
+          )}
         </div>
+
         <ShareIcon onClick={onShare} />
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
           className="text-slate-600 shrink-0 mt-1 opacity-0 group-hover:opacity-60 transition-opacity"
