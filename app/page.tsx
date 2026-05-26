@@ -13,12 +13,12 @@ interface Item {
 type Digest = Record<string, Item[]>;
 
 const SOURCES: Source[] = [
-  { id: "news", label: "World", category: "News", active: true, maxItems: 5, color: "#22c55e" },
-  { id: "tech", label: "Tech", category: "Tech", active: true, maxItems: 5, color: "#3b82f6" },
-  { id: "aiml", label: "AI", category: "AI/ML", active: true, maxItems: 5, color: "#8b5cf6" },
-  { id: "dev", label: "Dev", category: "Dev", active: true, maxItems: 5, color: "#f59e0b" },
-  { id: "social", label: "Social", category: "Social", active: false, maxItems: 5, color: "#ec4899" },
-  { id: "freelance", label: "Work", category: "Freelance", active: false, maxItems: 5, color: "#14b8a6" },
+  { id: "news", label: "World", category: "News", active: true, maxItems: 8, color: "#22c55e" },
+  { id: "tech", label: "Tech", category: "Tech", active: true, maxItems: 8, color: "#3b82f6" },
+  { id: "aiml", label: "AI", category: "AI/ML", active: true, maxItems: 8, color: "#8b5cf6" },
+  { id: "dev", label: "Dev", category: "Dev", active: true, maxItems: 8, color: "#f59e0b" },
+  { id: "social", label: "Social", category: "Social", active: false, maxItems: 8, color: "#ec4899" },
+  { id: "freelance", label: "Work", category: "Freelance", active: false, maxItems: 8, color: "#14b8a6" },
 ];
 
 const STORAGE = "omni-reader-v4";

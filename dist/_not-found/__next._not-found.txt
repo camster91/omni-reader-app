@@ -2,4 +2,4 @@
 2:I[39756,["/omni-reader-app/_next/static/chunks/0dbhjjzl8qfwv.js"],"default"]
 3:I[37457,["/omni-reader-app/_next/static/chunks/0dbhjjzl8qfwv.js"],"default"]
 4:[]
-0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"whpFhDljItt6yZ8Bf_B6u"}
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"GyXSZlVi1MCPhXv8mle6X"}
