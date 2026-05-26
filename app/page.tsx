@@ -8,7 +8,7 @@ interface Source {
 interface Item {
   title: string; link: string; source: string; image?: string;
   summary?: string; clickbait?: number; importance?: number;
-  quality?: number; interests?: string[];
+  quality?: number; interests?: string[]; sentiment?: string;
 }
 type Digest = Record<string, Item[]>;
 
@@ -79,6 +79,21 @@ function QualityBadge({ quality, clickbait, importance }: { quality: number; cli
     return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400">Worth reading</span>;
   }
   return null;
+}
+
+function SentimentDot({ sentiment }: { sentiment: string }) {
+  const colors: Record<string, string> = {
+    positive: "#22c55e",
+    negative: "#ef4444",
+    neutral: "#64748b",
+  };
+  return (
+    <span
+      className="inline-block w-1.5 h-1.5 rounded-full"
+      style={{ backgroundColor: colors[sentiment] || "#64748b" }}
+      title={sentiment}
+    />
+  );
 }
 
 function InterestTags({ tags }: { tags: string[] }) {
@@ -697,6 +712,9 @@ function StoryCard({
             <QualityBadge quality={item.quality ?? 0} clickbait={item.clickbait ?? 0} importance={item.importance ?? 0} />
             {summary && (
               <span className="text-[10px] text-slate-600">{readTime(summary)}</span>
+            )}
+            {item.sentiment && (
+              <SentimentDot sentiment={item.sentiment} />
             )}
           </div>
 
