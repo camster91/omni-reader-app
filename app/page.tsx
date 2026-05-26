@@ -190,7 +190,7 @@ export default function Home() {
     localStorage.setItem(STORAGE, JSON.stringify({ sources, read: [...read], showRead, minQuality }));
   }, [sources, read, showRead, minQuality]);
   useEffect(() => {
-    fetch("./digest.json")
+    fetch("./digest.json?t=" + Date.now())
       .then((r) => r.json())
       .then((data: Digest) => { setDigest(data); setLoading(false); })
       .catch(() => setLoading(false));
