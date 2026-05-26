@@ -21,7 +21,7 @@ const SOURCES: Source[] = [
   { id: "freelance", label: "Work", category: "Freelance", active: false, maxItems: 5, color: "#14b8a6" },
 ];
 
-const STORAGE = "omni-reader-v3";
+const STORAGE = "omni-reader-v4";
 const SCROLL_KEY = "omni-reader-scroll";
 function hash(str: string) { let h = 0; for (let c of str) h = ((h << 5) - h + c.charCodeAt(0)) | 0; return String(h); }
 function itemKey(item: Item) { return hash(item.title + item.link); }
@@ -29,6 +29,14 @@ function unreadCount(src: Source, digest: Digest, read: Set<string>, showRead: b
   const items = (digest[src.category] ?? []).slice(0, src.maxItems);
   if (showRead) return items.length;
   return items.filter((i) => !read.has(itemKey(i))).length;
+}
+function cleanTitle(title: string) {
+  return title.replace(/Opens in new (window|tab)/gi, "").trim();
+}
+function readTime(text: string) {
+  const words = text.trim().split(/\s+/).length;
+  const mins = Math.ceil(words / 200);
+  return mins < 1 ? "<1 min" : `${mins} min`;
 }
 
 function ArticleThumbnail({ url, title, size = 80 }: { url: string; title: string; size?: number }) {
@@ -87,6 +95,20 @@ function InterestTags({ tags }: { tags: string[] }) {
         </span>
       ))}
     </div>
+  );
+}
+
+function BookmarkIcon({ saved, onClick }: { saved: boolean; onClick: (e: React.MouseEvent) => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 p-1 rounded transition ${saved ? "text-amber-400" : "text-slate-600 hover:text-slate-400"}`}
+      aria-label={saved ? "Remove bookmark" : "Bookmark"}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+      </svg>
+    </button>
   );
 }
 
@@ -150,10 +172,10 @@ function ShareIcon({ onClick }: { onClick: (e: React.MouseEvent) => void }) {
   return (
     <button
       onClick={onClick}
-      className="shrink-0 mt-1 p-1 rounded hover:bg-slate-800/60 transition"
+      className="shrink-0 p-1 rounded hover:bg-slate-800/60 transition text-slate-600 hover:text-slate-400"
       aria-label="Share"
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500 hover:text-slate-300">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="18" cy="5" r="3" />
         <circle cx="6" cy="12" r="3" />
         <circle cx="18" cy="19" r="3" />
@@ -169,26 +191,29 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [sources, setSources] = useState<Source[]>(SOURCES);
   const [read, setRead] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<string | "all">("all");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showRead, setShowRead] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [minQuality, setMinQuality] = useState(0);
   const [showClickbait, setShowClickbait] = useState(false);
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE) || "{}");
-      if (saved.sources) setSources(saved.sources);
-      if (saved.read) setRead(new Set(saved.read));
-      if (saved.showRead != null) setShowRead(saved.showRead);
-      if (saved.minQuality != null) setMinQuality(saved.minQuality);
+      const data = JSON.parse(localStorage.getItem(STORAGE) || "{}");
+      if (data.sources) setSources(data.sources);
+      if (data.read) setRead(new Set(data.read));
+      if (data.saved) setSaved(new Set(data.saved));
+      if (data.showRead != null) setShowRead(data.showRead);
+      if (data.minQuality != null) setMinQuality(data.minQuality);
     } catch {}
   }, []);
   useEffect(() => {
-    localStorage.setItem(STORAGE, JSON.stringify({ sources, read: [...read], showRead, minQuality }));
-  }, [sources, read, showRead, minQuality]);
+    localStorage.setItem(STORAGE, JSON.stringify({ sources, read: [...read], saved: [...saved], showRead, minQuality }));
+  }, [sources, read, saved, showRead, minQuality]);
   useEffect(() => {
     fetch("./digest.json?t=" + Date.now())
       .then((r) => r.json())
@@ -255,21 +280,23 @@ export default function Home() {
 
   const qualityFiltered = useMemo(() => {
     let items = filtered;
-    // Filter by minimum quality
     if (minQuality > 0) {
       items = items.filter((i) => (i.item.quality ?? 0) >= minQuality);
     }
-    // Hide clickbait unless toggled
     if (!showClickbait) {
       items = items.filter((i) => (i.item.clickbait ?? 0) <= 0.4);
     }
+    if (showSavedOnly) {
+      items = items.filter((i) => saved.has(i.key));
+    }
     return items;
-  }, [filtered, minQuality, showClickbait]);
+  }, [filtered, minQuality, showClickbait, showSavedOnly, saved]);
 
   const unread = visible.filter((i) => !read.has(i.key)).length;
   const total = visible.length;
   const allDone = unread === 0 && total > 0;
   const noneActive = active.length === 0;
+  const savedCount = saved.size;
 
   useEffect(() => {
     if (unread > 0) {
@@ -290,6 +317,20 @@ export default function Home() {
       return next;
     });
   }, []);
+  const toggleSaved = useCallback((id: string) => {
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
+    setSaved((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        showToast("Removed from saved");
+      } else {
+        next.add(id);
+        showToast("Saved");
+      }
+      return next;
+    });
+  }, []);
   const markAll = useCallback(() => {
     setRead((prev) => {
       const next = new Set(prev);
@@ -297,7 +338,7 @@ export default function Home() {
       return next;
     });
   }, [qualityFiltered]);
-  const reset = useCallback(() => { if (confirm("Reset all progress?")) setRead(new Set()); }, []);
+  const reset = useCallback(() => { if (confirm("Reset all progress?")) { setRead(new Set()); setSaved(new Set()); } }, []);
   const toggleSource = useCallback((id: string) => {
     setSources((s) => s.map((x) => (x.id === id ? { ...x, active: !x.active } : x)));
   }, []);
@@ -310,10 +351,10 @@ export default function Home() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2000);
-  };
+  }, []);
 
   const handleShare = async (link: string, title: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -354,7 +395,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-950 pb-12">
-      {/* Pull to refresh indicator */}
       <div
         className={`fixed top-0 left-0 right-0 z-[60] flex items-center justify-center transition-transform duration-300 ${
           pulling ? "translate-y-0" : "-translate-y-full"
@@ -368,7 +408,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 border border-slate-700 text-slate-300 text-sm px-4 py-2 rounded-lg shadow-xl animate-fade-up">
           {toast}
@@ -381,6 +420,7 @@ export default function Home() {
             <h1 className="text-lg font-bold text-white">Omni Reader</h1>
             <p className="text-[11px] text-slate-500 font-medium">
               {noneActive ? "No feeds enabled" : allDone ? "All caught up" : `${unread} unread`}
+              {savedCount > 0 && ` · ${savedCount} saved`}
             </p>
           </div>
           <button
@@ -448,17 +488,30 @@ export default function Home() {
 
         <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
           <button
-            onClick={() => setFilter("all")}
+            onClick={() => { setFilter("all"); setShowSavedOnly(false); }}
             className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
-              filter === "all" ? "bg-white text-black" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"
+              filter === "all" && !showSavedOnly ? "bg-white text-black" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"
             }`}
           >
             All
           </button>
+          {savedCount > 0 && (
+            <button
+              onClick={() => setShowSavedOnly((s) => !s)}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition flex items-center gap-1.5 ${
+                showSavedOnly ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"
+              }`}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill={showSavedOnly ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+              </svg>
+              Saved {savedCount}
+            </button>
+          )}
           {active.map((src) => (
             <button
               key={src.id}
-              onClick={() => { setFilter(src.id); scrollToSection(src.id); }}
+              onClick={() => { setFilter(src.id); setShowSavedOnly(false); scrollToSection(src.id); }}
               className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition flex items-center gap-1.5 ${
                 filter === src.id ? "text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700"
               }`}
@@ -481,7 +534,7 @@ export default function Home() {
         {qualityFiltered.length > 0 && !allDone && (
           <div className="flex items-center justify-between mb-4">
             <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-              {filter === "all" ? "Everything" : active.find((s) => s.id === filter)?.label}
+              {showSavedOnly ? "Saved" : filter === "all" ? "Everything" : active.find((s) => s.id === filter)?.label}
             </span>
             <button
               onClick={markAll}
@@ -507,7 +560,7 @@ export default function Home() {
                 </button>
               )}
             </div>
-          ) : filter === "all" ? (
+          ) : filter === "all" && !showSavedOnly ? (
             active.map((src) => {
               const items = qualityFiltered
                 .filter(({ source }) => source.id === src.id)
@@ -527,8 +580,10 @@ export default function Home() {
                         item={item}
                         source={src}
                         isRead={read.has(key)}
+                        isSaved={saved.has(key)}
                         delay={i * 40}
                         onToggle={() => toggleRead(key)}
+                        onSave={(e) => { e.stopPropagation(); toggleSaved(key); }}
                         onShare={(e) => handleShare(item.link, item.title, e)}
                       />
                     ))}
@@ -544,8 +599,10 @@ export default function Home() {
                   item={item}
                   source={source}
                   isRead={read.has(key)}
+                  isSaved={saved.has(key)}
                   delay={i * 40}
                   onToggle={() => toggleRead(key)}
+                  onSave={(e) => { e.stopPropagation(); toggleSaved(key); }}
                   onShare={(e) => handleShare(item.link, item.title, e)}
                 />
               ))}
@@ -568,13 +625,16 @@ export default function Home() {
 }
 
 function StoryCard({
-  item, source, isRead, delay, onToggle, onShare,
+  item, source, isRead, isSaved, delay, onToggle, onSave, onShare,
 }: {
-  item: Item; source: Source; isRead: boolean; delay: number; onToggle: () => void; onShare: (e: React.MouseEvent) => void;
+  item: Item; source: Source; isRead: boolean; isSaved: boolean; delay: number;
+  onToggle: () => void; onSave: (e: React.MouseEvent) => void; onShare: (e: React.MouseEvent) => void;
 }) {
   const [imgErr, setImgErr] = useState(false);
   const hasImage = item.image && !imgErr;
   const ogUrl = item.image ? item.image : `https://v1.opengraph.11ty.dev/${encodeURIComponent(item.link)}/small/`;
+  const title = cleanTitle(item.title);
+  const summary = item.summary ? cleanTitle(item.summary) : "";
 
   return (
     <div className="animate-fade-up group" style={{ animationDelay: `${delay}ms` }}>
@@ -604,7 +664,7 @@ function StoryCard({
           {hasImage ? (
             <img
               src={ogUrl}
-              alt={item.title}
+              alt={title}
               className="rounded-lg bg-slate-800 object-cover"
               width={80}
               height={80}
@@ -612,18 +672,18 @@ function StoryCard({
               onError={() => setImgErr(true)}
             />
           ) : (
-            <ArticleThumbnail url={item.link} title={item.title} size={80} />
+            <ArticleThumbnail url={item.link} title={title} size={80} />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className={`font-medium text-[15px] leading-snug mb-1 ${isRead ? "line-through text-slate-600" : "text-slate-200"}`}>
-            {item.title}
+            {title}
           </div>
 
-          {item.summary && (
+          {summary && (
             <p className={`text-xs leading-relaxed mb-1.5 ${isRead ? "text-slate-700" : "text-slate-500"}`}>
-              {item.summary}
+              {summary}
             </p>
           )}
 
@@ -635,6 +695,9 @@ function StoryCard({
               {item.source}
             </span>
             <QualityBadge quality={item.quality ?? 0} clickbait={item.clickbait ?? 0} importance={item.importance ?? 0} />
+            {summary && (
+              <span className="text-[10px] text-slate-600">{readTime(summary)}</span>
+            )}
           </div>
 
           {item.interests && item.interests.length > 0 && (
@@ -642,7 +705,10 @@ function StoryCard({
           )}
         </div>
 
-        <ShareIcon onClick={onShare} />
+        <div className="flex flex-col gap-1 shrink-0">
+          <BookmarkIcon saved={isSaved} onClick={onSave} />
+          <ShareIcon onClick={onShare} />
+        </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
           className="text-slate-600 shrink-0 mt-1 opacity-0 group-hover:opacity-60 transition-opacity"
         >
