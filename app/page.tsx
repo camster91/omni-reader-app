@@ -117,6 +117,25 @@ function InterestTags({ tags }: { tags: string[] }) {
   );
 }
 
+function TopicTags({ tags }: { tags: string[] }) {
+  if (!tags || tags.length === 0) return null;
+  const topicColors: Record<string, string> = {
+    "AI/ML": "#8b5cf6", "Apple": "#64748b", "Google": "#3b82f6",
+    "Security": "#ef4444", "Canada": "#f59e0b", "Layoffs": "#dc2626",
+    "Crypto/Web3": "#14b8a6", "Meta": "#ec4899", "Elon/Tesla": "#6366f1",
+    "Climate": "#22c55e", "Health": "#f472b6",
+  };
+  return (
+    <div className="flex gap-1 mt-1 flex-wrap">
+      {tags.map((tag) => (
+        <span key={tag} className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `${topicColors[tag] || "#475569"}20`, color: topicColors[tag] || "#475569" }}>
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function BookmarkIcon({ saved, onClick }: { saved: boolean; onClick: (e: React.MouseEvent) => void }) {
   return (
     <button
@@ -763,6 +782,12 @@ function StoryCard({
           )}
 
           <div className="flex items-center gap-2 flex-wrap">
+            {item.fresh && (
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            )}
             <span
               className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
               style={{ backgroundColor: `${source.color}14`, color: source.color }}
@@ -780,6 +805,9 @@ function StoryCard({
 
           {item.interests && item.interests.length > 0 && (
             <InterestTags tags={item.interests} />
+          )}
+          {item.topics && item.topics.length > 0 && (
+            <TopicTags tags={item.topics} />
           )}
         </div>
 
