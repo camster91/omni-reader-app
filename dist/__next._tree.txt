@@ -1,2 +1,2 @@
 :HL["/omni-reader-app/_next/static/chunks/179fawyanetvq.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"v4n7nyrQXClxU8aqAcomx"}
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"Xtp1hB5WTdSK3TgMYmWtB"}

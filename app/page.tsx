@@ -681,7 +681,7 @@ function StoryCard({
             {title}
           </div>
 
-          {summary && (
+          {summary && summary.trim() && (
             <p className={`text-xs leading-relaxed mb-1.5 ${isRead ? "text-slate-700" : "text-slate-500"}`}>
               {summary}
             </p>
