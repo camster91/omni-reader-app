@@ -26,8 +26,20 @@ const SOURCES: Source[] = [
 ];
 
 const STORAGE = "omni-reader-v4";
+const PROFILE_STORAGE = "omni-reader-profile";
 const SCROLL_KEY = "omni-reader-scroll";
 function hash(str: string) { let h = 0; for (let c of str) h = ((h << 5) - h + c.charCodeAt(0)) | 0; return String(h); }
+
+const ALL_TOPICS = ["AI/ML", "Apple", "Google", "Security", "Canada", "Layoffs", "Crypto/Web3", "Meta", "Elon/Tesla", "Climate", "Health"];
+const ALL_INTERESTS = ["career", "ai", "money", "security", "design", "mobile", "privacy"];
+
+interface UserProfile {
+  topics: string[];
+  interests: string[];
+  locations: string[];
+  sources: string[];
+  density: "compact" | "comfortable";
+}
 function itemKey(item: Item) { return hash(item.title + item.link); }
 function unreadCount(src: Source, digest: Digest, read: Set<string>, showRead: boolean) {
   const items = (digest[src.category] ?? []).slice(0, src.maxItems);
@@ -241,6 +253,10 @@ export default function Home() {
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [readingItem, setReadingItem] = useState<Item | null>(null);
   const [readerOpen, setReaderOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfile>({
+    topics: [], interests: [], locations: [], sources: [], density: "comfortable"
+  });
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
@@ -252,10 +268,17 @@ export default function Home() {
       if (data.showRead != null) setShowRead(data.showRead);
       if (data.minQuality != null) setMinQuality(data.minQuality);
     } catch {}
+    try {
+      const p = JSON.parse(localStorage.getItem(PROFILE_STORAGE) || "{}");
+      if (p.topics) setProfile((prev) => ({ ...prev, ...p }));
+    } catch {}
   }, []);
   useEffect(() => {
     localStorage.setItem(STORAGE, JSON.stringify({ sources, read: [...read], saved: [...saved], showRead, minQuality }));
   }, [sources, read, saved, showRead, minQuality]);
+  useEffect(() => {
+    localStorage.setItem(PROFILE_STORAGE, JSON.stringify(profile));
+  }, [profile]);
   useEffect(() => {
     fetch("./digest.json?t=" + Date.now())
       .then((r) => r.json())
@@ -343,8 +366,35 @@ export default function Home() {
         (i.item.title + " " + (i.item.summary || "") + " " + i.item.source).toLowerCase().includes(q)
       );
     }
+    // Profile-based filtering: boost items matching user's interests/topics
+    if (profile.topics.length > 0 || profile.interests.length > 0) {
+      items = items.map((i) => {
+        const item = i.item;
+        let score = 0;
+        // Topic match
+        if (item.topics) {
+          for (const t of item.topics) {
+            if (profile.topics.includes(t)) score += 0.3;
+          }
+        }
+        // Interest match
+        if (item.interests) {
+          for (const interest of item.interests) {
+            if (profile.interests.includes(interest)) score += 0.2;
+          }
+        }
+        return { ...i, _profileScore: score };
+      });
+      // Sort by profile score descending, then quality
+      items = items.sort((a, b) => {
+        const scoreA = (a as any)._profileScore || 0;
+        const scoreB = (b as any)._profileScore || 0;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return (b.item.quality ?? 0) - (a.item.quality ?? 0);
+      });
+    }
     return items;
-  }, [filtered, minQuality, showClickbait, showSavedOnly, saved, activeKeyword, searchQuery]);
+  }, [filtered, minQuality, showClickbait, showSavedOnly, saved, activeKeyword, searchQuery, profile]);
 
   const unread = visible.filter((i) => !read.has(i.key)).length;
   const total = visible.length;
@@ -487,6 +537,16 @@ export default function Home() {
           >
             {settingsOpen ? "Close" : "Feeds"}
           </button>
+          <button
+            onClick={() => setProfileOpen((p) => !p)}
+            className={`ml-2 text-sm px-3 py-1.5 rounded-lg transition font-medium ${
+              profileOpen
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+            }`}
+          >
+            {profileOpen ? "Close" : "Profile"}
+          </button>
         </div>
       </header>
 
@@ -537,6 +597,91 @@ export default function Home() {
                 className="w-full accent-indigo-500"
               />
             </div>
+          </div>
+        )}
+
+        {profileOpen && (
+          <div className="mb-5 p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Your Profile</span>
+              <button
+                onClick={() => setProfile({ topics: [], interests: [], locations: [], sources: [], density: "comfortable" })}
+                className="text-xs text-red-400/70 hover:text-red-400 transition"
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <span className="text-xs text-slate-500 mb-1.5 block">Topics you care about</span>
+              <div className="flex gap-1.5 flex-wrap">
+                {ALL_TOPICS.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setProfile((p) => ({
+                      ...p,
+                      topics: p.topics.includes(t) ? p.topics.filter((x) => x !== t) : [...p.topics, t],
+                    }))}
+                    className={`px-2 py-1 rounded text-xs font-medium border transition ${
+                      profile.topics.includes(t)
+                        ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"
+                        : "bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <span className="text-xs text-slate-500 mb-1.5 block">Interests</span>
+              <div className="flex gap-1.5 flex-wrap">
+                {ALL_INTERESTS.map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => setProfile((p) => ({
+                      ...p,
+                      interests: p.interests.includes(i) ? p.interests.filter((x) => x !== i) : [...p.interests, i],
+                    }))}
+                    className={`px-2 py-1 rounded text-xs font-medium border transition ${
+                      profile.interests.includes(i)
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                        : "bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600"
+                    }`}
+                  >
+                    {i}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <span className="text-xs text-slate-500 mb-1.5 block">View density</span>
+              <div className="flex gap-2">
+                {(["compact", "comfortable"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setProfile((p) => ({ ...p, density: d }))}
+                    className={`px-3 py-1.5 rounded text-xs font-medium border transition ${
+                      profile.density === d
+                        ? "bg-slate-700 text-white border-slate-600"
+                        : "bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600"
+                    }`}
+                  >
+                    {d === "compact" ? "Compact" : "Comfortable"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(profile.topics.length > 0 || profile.interests.length > 0) && (
+              <div className="text-xs text-slate-500">
+                {profile.topics.length > 0 && <span>{profile.topics.length} topics selected. </span>}
+                {profile.interests.length > 0 && <span>{profile.interests.length} interests selected.</span>}
+                <span className="text-slate-600"> Matching articles boosted to top.</span>
+              </div>
+            )}
           </div>
         )}
 
