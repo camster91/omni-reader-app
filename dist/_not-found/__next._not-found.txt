@@ -1,5 +1,5 @@
 1:"$Sreact.fragment"
-2:I[39756,["/omni-reader-app/_next/static/chunks/0dbhjjzl8qfwv.js"],"default"]
-3:I[37457,["/omni-reader-app/_next/static/chunks/0dbhjjzl8qfwv.js"],"default"]
+2:I[69547,["/omni-reader-app/_next/static/chunks/0ta3r0_7pzwcv.js"],"default"]
+3:I[83388,["/omni-reader-app/_next/static/chunks/0ta3r0_7pzwcv.js"],"default"]
 4:[]
-0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"LshRILc4wpyg1UElkeNf5"}
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"37kmdkRsPzyilC64Fah03"}
